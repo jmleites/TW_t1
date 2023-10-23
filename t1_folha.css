@@ -168,37 +168,56 @@ h1 {
     background-color: rgb(7, 7, 7);
 }
 
-/* Define a common class for highlights */
-.highlight {
-    position: absolute;
-    width: 20px; /* Adjust the size as needed */
-    height: 20px; /* Make it as large or small as you want */
-    background-color: gray; /* Set the background color to gray */
-    border-radius: 50%; /* Makes the element a circle */
-    margin: auto; /* Centers the circle in the cell */
-    pointer-events: none; /* Allows clicks to pass through the highlights */
-}
-
 /* Different classes for different directions */
-.highlight-up {
-    top: -20px; /* Position above the cell */
-    left: 0;
+.highlight-up::before {
+    content: ''; /* Add content to the pseudo-element */
+    display: block;
+    position: absolute; /* Position absolutely within the relative container */
+    background-color: rgb(77, 77, 77);
+    width: 30px; /* Adjust the size of the circle */
+    height: 30px;
+    border-radius: 50%; /* Make it circular */
+    margin: auto; /* Center the circle horizontally */
 }
 
-.highlight-down {
-    bottom: -20px; /* Position below the cell */
-    left: 0;
+.highlight-down::before {
+    content: ''; /* Add content to the pseudo-element */
+    display: block;
+    position: absolute; /* Position absolutely within the relative container */
+    background-color: rgb(77, 77, 77);
+    width: 30px; /* Adjust the size of the circle */
+    height: 30px;
+    border-radius: 50%; /* Make it circular */
+    margin: auto; /* Center the circle horizontally */
 }
 
-.highlight-left {
-    top: 0;
-    left: -20px; /* Position to the left of the cell */
+.highlight-left::before {
+    content: ''; /* Add content to the pseudo-element */
+    display: block;
+    position: absolute; /* Position absolutely within the relative container */
+    background-color: rgb(77, 77, 77);
+    width: 30px; /* Adjust the size of the circle */
+    height: 30px;
+    border-radius: 50%; /* Make it circular */
+    margin: auto; /* Center the circle horizontally */
 }
 
-.highlight-right {
-    top: 0;
-    right: -20px; /* Position to the right of the cell */
+.highlight-right::before {
+    content: ''; /* Add content to the pseudo-element */
+    display: block;
+    position: absolute; /* Position absolutely within the relative container */
+    background-color: rgb(77, 77, 77);
+    width: 30px; /* Adjust the size of the circle */
+    height: 30px;
+    border-radius: 50%; /* Make it circular */
+    margin: auto; /* Center the circle horizontally */
 }
+
+.selected-white {
+    background-color: rgb(141, 141, 141); /* Change the background color to red or your desired color */
+    /* Add any other style changes you want when a piece is selected */
+}
+
 
 
 .game-options{
