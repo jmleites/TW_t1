@@ -82,14 +82,16 @@ document.addEventListener("DOMContentLoaded", function () {
         }
 
     function placePieceRandomly(pieceColor, pieceCount) {
-        if (pieceCount < 12) {
+        if (pieceCount <= 12) {
             const blockedCells = blockedCellsForBlack();
             const emptyCells = [...boardCells].filter((cell) => !cell.querySelector(".piece") && !blockedCells.has(cell));
             if (emptyCells.length > 0) {
                 const randomCell = emptyCells[Math.floor(Math.random() * emptyCells.length)];
                 randomCell.innerHTML = `<div class="piece ${pieceColor}"></div>`;
             }
-            startPlayerTurn('white');
+            if (pieceCount < 12) {
+                startPlayerTurn('white');  
+            }
         }
         if (pieceCount == 12) {
             placePieceOver();
@@ -104,10 +106,10 @@ document.addEventListener("DOMContentLoaded", function () {
     let selectedPiece = null;
 
     function addClickToWhitePieces() {
+        clearHighlightedCells();
         boardCells.forEach((cell) => {
             cell.removeEventListener('click', handleWhitePieceClick);
             const piece = cell.querySelector('.piece.white');
-            console.log("piece selected: ", piece)
             if (piece) {
                 cell.addEventListener('click', handleWhitePieceClick);
             }
@@ -115,33 +117,27 @@ document.addEventListener("DOMContentLoaded", function () {
     }
     
     function handleWhitePieceClick(event) {
+        clearHighlightedCells();
         const cell = event.currentTarget;
         const piece = cell.querySelector('.piece.white');
-        console.log("current piece, cell", piece, cell)
-        console.log("previous piece", selectedPiece)
+        cell.removeEventListener('click', handleWhitePieceClick);
         if (currentPlayer === 1) {
-            if (selectedPiece === piece) {
-                // Deselect the piece
-                clearHighlightedCells();
-                selectedPiece = null;
-            } else {
-                if (selectedPiece) {
-                    // Deselect the previously selected piece
-                    clearHighlightedCells();
-                }
-                // Select the new piece for movement
-                selectedPiece = piece;
-                highlightAvailableMoves(cell);
+            // Deselect the previously selected piece
+            if (selectedPiece) {
+                selectedPiece.classList.remove('selected-white');
             }
+    
+            // Select the new piece for movement
+            selectedPiece = piece;
+            selectedPiece.classList.add('selected-white'); // Add the "selected" class
+            highlightAvailableMoves(cell);
+            // Add a click listener to the selected piece
         }
     }
     
     function highlightAvailableMoves(cell) {
-        clearHighlightedCells(); // Clear existing event listeners first
-    
         const cellId = cell.id;
         const cellNumber = parseInt(cellId.split("-")[1], 10);
-        console.log(cellId, cellNumber);
     
         // Define the possible move directions
         const directions = [
@@ -159,105 +155,250 @@ document.addEventListener("DOMContentLoaded", function () {
             if (newRow >= 0 && newRow < 6 && newCol >= 0 && newCol < 5) {
                 const newCellNumberId = newRow * 5 + newCol + 1;
                 const newCell = document.getElementById(`cell-${newCellNumberId}`);
-                newCell.classList.add(direction.class);
-                newCell.addEventListener('click', () => {
-                    // Call a function to handle the move in the selected direction
-                    handleMoveInDirection(direction);
-                });
+                if (!newCell.querySelector('.piece')) {
+                    newCell.classList.add(direction.class);
+                    newCell.addEventListener('click', () => {
+                        // Call a function to handle the move in the selected direction
+                        handleMoveInDirection(direction);
+                    });  
+                }
             }
         });
     }
+
+    let previousCellId = null;
+    let previousPiece = null;
     
     function handleMoveInDirection(direction) {
-        console.log(direction)
         // Define the current cell and its ID
         const currentCell = selectedPiece.parentElement;
         const currentCellId = currentCell.id;
         const currentCellNumber = parseInt(currentCellId.split("-")[1], 10);
-    
         // Calculate the new cell's ID and position
         const newRow = Math.floor((currentCellNumber - 1) / 5) + direction.row;
         const newCol = ((currentCellNumber - 1) % 5) + direction.col;
         const newCellNumberId = newRow * 5 + newCol + 1;
         const newCell = document.getElementById(`cell-${newCellNumberId}`);
+        const newPiece = currentCell.querySelector(".piece");
+        logCellsWithPieces();
     
         // Check if the new cell is within the board boundaries (5x6) and doesn't have a piece
-        if (newRow >= 0 && newRow < 6 && newCol >= 0 && newCol < 5 && !newCell.querySelector('.piece')) {
+        if (newRow >= 0 && newRow < 6 && newCol >= 0 && newCol < 5 && !newCell.querySelector('.piece') && (previousCellId !== newCellNumberId || previousPiece != newPiece)) {
+            previousCellId = currentCellNumber;
             // Move the piece to the new cell
             newCell.appendChild(selectedPiece);
+            previousPiece = newCell.querySelector(".piece");
             currentCell.innerHTML = '';
             clearHighlightedCells(); // Clear the highlights
+            selectedPiece.classList.remove('selected-white');
+            const upThreeInARow = checkForThreeInARow(newCell, { row: -1, col: 0 });
+            const downThreeInARow = checkForThreeInARow(newCell, { row: 1, col: 0 });
+            const leftThreeInARow = checkForThreeInARow(newCell, { row: 0, col: -1 });
+            const rightThreeInARow = checkForThreeInARow(newCell, { row: 0, col: 1 });
+            if (upThreeInARow || downThreeInARow || leftThreeInARow || rightThreeInARow) {
+                addClickToOpponentPieces();
+            }
+            else {
+                currentPlayer = 2;
+                moveBlackPiece();
+            }
+        }
+    }
+
+    function addClickToOpponentPieces() {
+        boardCells.forEach((cell) => {
+            const opponentPiece = cell.querySelector('.piece.black'); // Assuming opponent's pieces have the class 'piece.black'
+            if (opponentPiece) {
+                cell.addEventListener('click', removeOpponentPiece);
+            }
+        });
+    }
     
-            // Update the game state here if needed
-            // Allow the AI turn to proceed
-            currentPlayer = 2;
-            moveBlackPiece();
-    
-            // Add your logic to check for a win condition here (if needed)
-            // Call the AI move function or handle other game-specific logic
+    function removeOpponentPiece(event) {
+        if (selectedPiece) {
+            const cell = event.currentTarget;
+            const opponentPiece = cell.querySelector('.piece.black');
+            if (opponentPiece) {
+                cell.removeEventListener('click', removeOpponentPiece);
+                cell.removeChild(opponentPiece);
+                currentPlayer = 2;
+                moveBlackPiece();
+                // Add your logic for further game actions, like updating the game state
+            }
         }
     }
     
+
+    function checkForThreeInARow(cell, direction) {
+        const cellId = cell.id;
+        const cellNumber = parseInt(cellId.split("-")[1], 10);
+        
+        const playerPiece = currentPlayer === 1 ? '.piece.white' : '.piece.black';
+    
+        // Initialize variables for the three cells
+        let firstCell = cell;
+        let secondCell, thirdCell, forthCell;
+    
+        // Calculate the positions of the three cells based on the direction
+        var newRow = Math.floor((cellNumber - 1) / 5) + direction.row;
+        var newCol = ((cellNumber - 1) % 5) + direction.col;
+        var newCellNumber = newRow * 5 + newCol + 1;
+        
+        if (newRow >= 0 && newRow < 6 && newCol >= 0 && newCol < 5) {
+            secondCell = document.getElementById(`cell-${newCellNumber}`);
+        }
+    
+        newRow = newRow + direction.row;
+        newCol = newCol + direction.col;
+        newCellNumber = newRow * 5 + newCol + 1;
+        
+        if (newRow >= 0 && newRow < 6 && newCol >= 0 && newCol < 5) {
+            thirdCell = document.getElementById(`cell-${newCellNumber}`);
+        }
+
+        newRow = newRow - 3 * direction.row;
+        newCol = newCol - 3 * direction.col;
+        newCellNumber = newRow * 5 + newCol + 1;
+
+        if (newRow >= 0 && newRow < 6 && newCol >= 0 && newCol < 5) {
+            forthCell = document.getElementById(`cell-${newCellNumber}`);
+        }
+        // Check if three consecutive cells contain the same player's pieces
+        return ((
+            firstCell.querySelector(`${playerPiece}`) &&
+            secondCell && secondCell.querySelector(`${playerPiece}`) &&
+            thirdCell && thirdCell.querySelector(`${playerPiece}`)) || (
+            firstCell.querySelector(`${playerPiece}`) &&
+            secondCell && secondCell.querySelector(`${playerPiece}`) &&
+            forthCell && forthCell.querySelector(`${playerPiece}`))
+        );
+    }
+    
+    
+    
+    
+
     // Clear all highlight classes and click event listeners
     function clearHighlightedCells() {
         boardCells.forEach((cell) => {
             cell.classList.remove('highlight-up', 'highlight-down', 'highlight-left', 'highlight-right');
-            cell.removeEventListener('click', () => {});
+            cell.removeEventListener('click', handleMoveInDirection);
         });
     }
     
-    
+    function logCellsWithPieces() {
+        const cellsWithPieces = [];
+        boardCells.forEach((cell) => {
+            const piece = cell.querySelector('.piece');
+            if (piece) {
+                cellsWithPieces.push(cell.id); // You can store cell information as needed
+            }
+        });
+    }
 
+    let previousBPiece = null;
+    let previousBCellId = null;
     
     function moveBlackPiece() {
         // Get all black pieces on the board
-        const blackPieces = document.querySelectorAll('.piece.black');
+        var blackPieces = document.querySelectorAll('.piece.black');
     
         if (blackPieces.length === 0) {
             // No black pieces left, end the game or take appropriate action
             return;
         }
     
-        // Select a random black piece
-        const randomIndex = Math.floor(Math.random() * blackPieces.length);
-        const piece = blackPieces[randomIndex];
+        // Shuffle the black pieces for a random selection
+        shuffleArray(blackPieces);
     
-        // Get the current cell of the piece
-        const selectedCell = piece.parentElement;
-        const cellId = selectedCell.id;
-        const cellNumber = parseInt(cellId.split("-")[1], 10);
+        let validMoveFound = false;
+
+        for (let i = 0; i < blackPieces.length; i++) {
+            var randomNumber = getRandomInt(blackPieces.length);
+            const piece = blackPieces[randomNumber];
+            const selectedCell = piece.parentElement;
+            const cellId = selectedCell.id;
+            const cellNumber = parseInt(cellId.split("-")[1], 10);
+            const newPiece = selectedCell.querySelector(".piece");
+            // Define the possible move directions
+            const directions = [
+                { row: -1, col: 0 }, // Up
+                { row: 1, col: 0 },  // Down
+                { row: 0, col: -1 }, // Left
+                { row: 0, col: 1 }   // Right
+            ];
     
-        // Define the possible move directions
-        const directions = [
-            { row: -1, col: 0 }, // Up
-            { row: 1, col: 0 },  // Down
-            { row: 0, col: -1 }, // Left
-            { row: 0, col: 1 }   // Right
-        ];
+            let newDirection, newRow, newCol, newCellNumberId, newCell;
     
-        let newDirection, newRow, newCol, newCellNumberId, newCell;
+            // Shuffle the directions for random order
+            shuffleArray(directions);
     
-        // Try random directions until a legal move is found
-        do {
-            // Generate a random direction (0 for up, 1 for down, 2 for left, 3 for right)
-            const randomDirection = Math.floor(Math.random() * 4);
+            for (const direction of directions) {
+                newRow = Math.floor((cellNumber - 1) / 5) + direction.row;
+                newCol = ((cellNumber - 1) % 5) + direction.col;
+                newCellNumberId = newRow * 5 + newCol + 1;
+                newCell = document.getElementById(`cell-${newCellNumberId}`);
+                if (newRow >= 0 && newRow < 6 && newCol >= 0 && newCol < 5 && !newCell.querySelector('.piece') && (previousBCellId !== newCellNumberId || previousBPiece != newPiece)) {
+                    previousBCellId = cellNumber;
+                    newCell.appendChild(piece);
+                    previousBPiece = newCell.querySelector('.piece');
+                    selectedCell.innerHTML = '';
+                    const upThreeInARow = checkForThreeInARow(newCell, { row: -1, col: 0 });
+                    const downThreeInARow = checkForThreeInARow(newCell, { row: 1, col: 0 });
+                    const leftThreeInARow = checkForThreeInARow(newCell, { row: 0, col: -1 });
+                    const rightThreeInARow = checkForThreeInARow(newCell, { row: 0, col: 1 });
+                    if (upThreeInARow || downThreeInARow || leftThreeInARow || rightThreeInARow) {
+                        removeRandomWhitePiece();
+                    }
+                    validMoveFound = true;
+                    currentPlayer = 1;
+                    selectedPiece = null;
+                    addClickToWhitePieces();
+                    break;
+                    }
+                }
+            
     
-            // Calculate the new position based on the random direction
-            newDirection = directions[randomDirection];
-            newRow = Math.floor((cellNumber - 1) / 5) + newDirection.row;
-            newCol = ((cellNumber - 1) % 5) + newDirection.col;
-            newCellNumberId = newRow * 5 + newCol + 1;
+            if (validMoveFound) {
+                break;
+            }
+        }
     
-            // Get the new cell
-            newCell = document.getElementById(`cell-${newCellNumberId}`);
-        } while (newRow < 0 || newRow >= 6 || newCol < 0 || newCol >= 5 || newCell.querySelector('.piece'));
+        if (!validMoveFound) {
+            return;
+        }
+    }
+
+    function removeRandomWhitePiece() {
+        const whitePieces = document.querySelectorAll('.piece.white');
+        if (whitePieces.length === 0) {
+            return;
+        }
+        const randomIndex = Math.floor(Math.random() * whitePieces.length);
+        const pieceToRemove = whitePieces[randomIndex];
+        const cell = pieceToRemove.parentElement;
+        cell.removeChild(pieceToRemove);
+    }
     
-        // Move the piece to the new cell
-        newCell.appendChild(piece);
-        selectedCell.innerHTML = '';
-        currentPlayer = 1;
-        addClickToWhitePieces();
-    }    
+    function shuffleArray(array) {
+        let currentIndex = array.length,  randomIndex;
+      
+        // While there remain elements to shuffle.
+        while (currentIndex > 0) {
+      
+          // Pick a remaining element.
+          randomIndex = Math.floor(Math.random() * currentIndex);
+          currentIndex--;
+      
+          // And swap it with the current element.
+          [array[currentIndex], array[randomIndex]] = [
+            array[randomIndex], array[currentIndex]];
+        }
+      }
+
+    function getRandomInt(max) {
+        return Math.floor(Math.random() * max);
+    }  
 
     const boardCells = document.querySelectorAll(".cell");
 
